@@ -92,7 +92,15 @@ object SchemaWriter {
     def isAbstractEffectful(typedef: ObjectTypeDefinition): Boolean =
       isEffectTypeAbstract && isEffectful(typedef)
 
-    def isEffectful(typedef: ObjectTypeDefinition): Boolean = isLocalEffectful(typedef) || isNestedEffectful(typedef)
+    def isEffectful(typedef: ObjectTypeDefinition): Boolean                                                  =
+      isLocalEffectful(typedef) || isNestedEffectful(typedef)
+
+    def isUnionSiblingAbstractEffectful(typedef: ObjectTypeDefinition): Boolean                              =
+      schema.unionTypeDefinitions
+        .exists(union =>
+          union.memberTypes.contains(typedef.name) &&
+            union.memberTypes.flatMap(schema.objectTypeDefinition).exists(isAbstractEffectful)
+        )
 
     def isLocalEffectful(typedef: ObjectTypeDefinition): Boolean =
       hasFieldWithDirective(typedef, LazyDirective)
@@ -103,7 +111,7 @@ object SchemaWriter {
         .exists(t => hasFieldWithDirective(t, LazyDirective))
 
     def generic(op: ObjectTypeDefinition, isRootDefinition: Boolean = false): String =
-      if ((isRootDefinition && isEffectTypeAbstract) || isAbstractEffectful(op))
+      if ((isRootDefinition && isEffectTypeAbstract) || isAbstractEffectful(op) || isUnionSiblingAbstractEffectful(op))
         s"[${effect}[_]]"
       else
         s""
@@ -179,10 +187,20 @@ object SchemaWriter {
           }
        """
 
-    def writeUnions(unions: List[UnionTypeDefinition]): String =
-      unions.map(x => writeUnionSealedTrait(x)).mkString("\n")
+    def writeUnions(unions: Map[UnionTypeDefinition, List[ObjectTypeDefinition]]): String =
+      unions.map { case (unionDecl, unionMembers) =>
+        if (unionMembers.exists(isAbstractEffectful)) {
+          writeUnionSealedTraitWithAbstractEffect(unionDecl)
+        } else {
+          writeUnionSealedTrait(unionDecl)
+        }
+      }.mkString("\n")
 
-    def writeUnionSealedTrait(union: UnionTypeDefinition): String =
+    def writeUnionSealedTraitWithAbstractEffect(union: UnionTypeDefinition): String =
+      s"""${writeTypeAnnotations(
+          union
+        )}sealed trait ${union.name}[F[_]] extends scala.Product with scala.Serializable$derivesSchema"""
+    def writeUnionSealedTrait(union: UnionTypeDefinition): String                   =
       s"""${writeTypeAnnotations(
           union
         )}sealed trait ${union.name} extends scala.Product with scala.Serializable$derivesSchema"""
@@ -417,7 +435,7 @@ object SchemaWriter {
       .map(union => (union, union.memberTypes.flatMap(schema.objectTypeDefinition)))
       .toMap
 
-    val unions = writeUnions(schema.unionTypeDefinitions)
+    val unions = writeUnions(unionTypes)
 
     val interfacesStr = schema.interfaceTypeDefinitions.map { interface =>
       writeInterface(interface)
@@ -432,7 +450,10 @@ object SchemaWriter {
       )
       .map { obj =>
         val extendsInterfaces = obj.implements.map(name => name.name)
-        val partOfUnionTypes  = unionTypes.collect { case (u, os) if os.exists(_.name == obj.name) => u.name }
+        val partOfUnionTypes  = unionTypes.collect {
+          case (u, members) if members.exists(_.name == obj.name) =>
+            if (members.exists(isAbstractEffectful)) s"${u.name}[F]" else u.name
+        }
         writeObject(obj, extend = extendsInterfaces ++ partOfUnionTypes)
       }
       .mkString("\n")

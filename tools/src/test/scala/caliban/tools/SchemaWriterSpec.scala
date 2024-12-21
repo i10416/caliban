@@ -80,6 +80,32 @@ object SchemaWriterSpec extends SnapshotTest {
         isEffectTypeAbstract = true
       )
     ),
+    snapshotTest("union, abstracted effect type and lazy combination")(
+      gen(
+        """
+         type Query {
+           effectful: U0!
+           pure: U1!
+         }
+         union U0 = A | B | C
+         union U1 = C | D
+         type A {
+           lazyField: Int @lazy
+         }
+         type B {
+           lazyFieldWithArgs(int: Int): Int @lazy
+         }
+         type C {
+           field: Int
+         }
+         type D {
+          fiend: Int
+         }
+         """,
+        effect = "F",
+        isEffectTypeAbstract = true
+      )
+    ),
     snapshotTest("simple mutation with abstracted effect type")(
       gen(
         """
