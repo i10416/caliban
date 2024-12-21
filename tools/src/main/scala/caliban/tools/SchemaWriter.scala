@@ -1,6 +1,7 @@
 package caliban.tools
 
 import caliban.parsing.adt.Definition.TypeSystemDefinition.TypeDefinition
+import caliban.parsing.adt.Definition.TypeSystemDefinition.AggregationTypeDefinition
 import caliban.parsing.adt.Definition.TypeSystemDefinition.TypeDefinition._
 import caliban.parsing.adt.Directives.{ LazyDirective, NewtypeDirective }
 import caliban.parsing.adt.Type.{ ListType, NamedType }
@@ -89,10 +90,10 @@ object SchemaWriter {
       s"${safeName(field.name)} :$argsTypeName $effect[$fieldType]"
     }
 
-    def isAbstractEffectful(typedef: ObjectTypeDefinition): Boolean =
+    def isAbstractEffectful(typedef: AggregationTypeDefinition): Boolean =
       isEffectTypeAbstract && isEffectful(typedef)
 
-    def isEffectful(typedef: ObjectTypeDefinition): Boolean =
+    def isEffectful(typedef: AggregationTypeDefinition): Boolean =
       isLocalEffectful(typedef) || isNestedEffectful(typedef)
 
     def isUnionSiblingAbstractEffectful(typedef: ObjectTypeDefinition): Boolean =
@@ -102,23 +103,15 @@ object SchemaWriter {
             union.memberTypes.flatMap(schema.objectTypeDefinition).exists(isAbstractEffectful)
         )
 
-    def isLocalEffectful(typedef: ObjectTypeDefinition): Boolean =
+    def isLocalEffectful(typedef: AggregationTypeDefinition): Boolean =
       hasFieldWithDirective(typedef, LazyDirective)
 
-    def isNestedEffectful(typedef: ObjectTypeDefinition): Boolean =
+    def isNestedEffectful(typedef: AggregationTypeDefinition): Boolean =
       typeNameToNestedFields
         .getOrElse(typedef.name, List.empty)
         .exists(t => hasFieldWithDirective(t, LazyDirective))
 
-    def isInterfaceAbstractEffectful(interface: InterfaceTypeDefinition): Boolean = {
-      val direct     = interface.fields.exists(_.directives.exists(_.name == LazyDirective))
-      val transitive = typeNameToNestedFields
-        .getOrElse(interface.name, List.empty)
-        .exists(t => hasFieldWithDirective(t, LazyDirective))
-      isEffectTypeAbstract && (direct || transitive)
-    }
-
-    def generic(tpeDef: TypeDefinition, isRootDefinition: Boolean = false): String =
+    def generic(tpeDef: AggregationTypeDefinition, isRootDefinition: Boolean = false): String =
       tpeDef match {
         case op: ObjectTypeDefinition           =>
           if (
@@ -128,9 +121,8 @@ object SchemaWriter {
           else
             ""
         case interface: InterfaceTypeDefinition =>
-          if (isInterfaceAbstractEffectful(interface)) s"[${effect}[_]]"
+          if (isAbstractEffectful(interface)) s"[${effect}[_]]"
           else ""
-        case others                             => ""
       }
 
     def writeRootQueryOrMutationDef(op: ObjectTypeDefinition): String =
@@ -472,7 +464,7 @@ object SchemaWriter {
           schema
             .interfaceTypeDefinition(name)
             .map(interface =>
-              if (isInterfaceAbstractEffectful(interface)) s"$name[F]"
+              if (isAbstractEffectful(interface)) s"$name[F]"
               else name
             )
         }

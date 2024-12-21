@@ -77,13 +77,17 @@ object Definition {
       }
     }
 
-    sealed trait TypeDefinition extends TypeSystemDefinition {
+    sealed trait TypeDefinition                             extends TypeSystemDefinition {
       def name: String
       def description: Option[String]
       def directives: List[Directive]
 
       final def isDeprecated: Boolean             = Directives.isDeprecated(directives)
       final def deprecationReason: Option[String] = Directives.deprecationReason(directives)
+    }
+    private[caliban] sealed trait AggregationTypeDefinition extends TypeDefinition       {
+      def fields: List[FieldDefinition]
+      def implements: List[NamedType]
     }
 
     object TypeDefinition {
@@ -94,7 +98,7 @@ object Definition {
         implements: List[NamedType],
         directives: List[Directive],
         fields: List[FieldDefinition]
-      ) extends TypeDefinition {
+      ) extends AggregationTypeDefinition {
         override def toString: String = "Object"
       }
 
@@ -104,7 +108,7 @@ object Definition {
         implements: List[NamedType],
         directives: List[Directive],
         fields: List[FieldDefinition]
-      ) extends TypeDefinition {
+      ) extends AggregationTypeDefinition {
         override def toString: String = "Interface"
       }
 
