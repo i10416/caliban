@@ -92,10 +92,10 @@ object SchemaWriter {
     def isAbstractEffectful(typedef: ObjectTypeDefinition): Boolean =
       isEffectTypeAbstract && isEffectful(typedef)
 
-    def isEffectful(typedef: ObjectTypeDefinition): Boolean                                                  =
+    def isEffectful(typedef: ObjectTypeDefinition): Boolean =
       isLocalEffectful(typedef) || isNestedEffectful(typedef)
 
-    def isUnionSiblingAbstractEffectful(typedef: ObjectTypeDefinition): Boolean                              =
+    def isUnionSiblingAbstractEffectful(typedef: ObjectTypeDefinition): Boolean =
       schema.unionTypeDefinitions
         .exists(union =>
           union.memberTypes.contains(typedef.name) &&
