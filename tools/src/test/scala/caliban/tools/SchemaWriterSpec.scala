@@ -99,7 +99,7 @@ object SchemaWriterSpec extends SnapshotTest {
            field: Int
          }
          type D {
-          fiend: Int
+          field: Int
          }
          """,
         effect = "F",
