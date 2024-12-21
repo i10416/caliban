@@ -110,11 +110,28 @@ object SchemaWriter {
         .getOrElse(typedef.name, List.empty)
         .exists(t => hasFieldWithDirective(t, LazyDirective))
 
-    def generic(op: ObjectTypeDefinition, isRootDefinition: Boolean = false): String =
-      if ((isRootDefinition && isEffectTypeAbstract) || isAbstractEffectful(op) || isUnionSiblingAbstractEffectful(op))
-        s"[${effect}[_]]"
-      else
-        s""
+    def isInterfaceAbstractEffectful(interface: InterfaceTypeDefinition): Boolean = {
+      val direct     = interface.fields.exists(_.directives.exists(_.name == LazyDirective))
+      val transitive = typeNameToNestedFields
+        .getOrElse(interface.name, List.empty)
+        .exists(t => hasFieldWithDirective(t, LazyDirective))
+      isEffectTypeAbstract && (direct || transitive)
+    }
+
+    def generic(tpeDef: TypeDefinition, isRootDefinition: Boolean = false): String =
+      tpeDef match {
+        case op: ObjectTypeDefinition           =>
+          if (
+            (isRootDefinition && isEffectTypeAbstract) || isAbstractEffectful(op) || isUnionSiblingAbstractEffectful(op)
+          )
+            s"[${effect}[_]]"
+          else
+            ""
+        case interface: InterfaceTypeDefinition =>
+          if (isInterfaceAbstractEffectful(interface)) s"[${effect}[_]]"
+          else ""
+        case others                             => ""
+      }
 
     def writeRootQueryOrMutationDef(op: ObjectTypeDefinition): String =
       s"""
@@ -209,7 +226,9 @@ object SchemaWriter {
       s"""@GQLInterface
         ${writeTypeAnnotations(
           interface
-        )}sealed trait ${interface.name} extends scala.Product with scala.Serializable $derivesEnvSchema {
+        )}sealed trait ${interface.name}${generic(
+          interface
+        )} extends scala.Product with scala.Serializable $derivesEnvSchema {
          ${interface.fields.map(field => writeField(field, interface, isMethod = true)).mkString("\n")}
         }
        """
@@ -449,8 +468,16 @@ object SchemaWriter {
           schemaDef.exists(_.subscription.getOrElse("Subscription") == obj.name)
       )
       .map { obj =>
-        val extendsInterfaces = obj.implements.map(name => name.name)
-        val partOfUnionTypes  = unionTypes.collect {
+        val extendsInterfaces = obj.implements.flatMap { case NamedType(name, _) =>
+          schema
+            .interfaceTypeDefinition(name)
+            .map(interface =>
+              if (isInterfaceAbstractEffectful(interface)) s"$name[F]"
+              else name
+            )
+        }
+
+        val partOfUnionTypes = unionTypes.collect {
           case (u, members) if members.exists(_.name == obj.name) =>
             if (members.exists(isAbstractEffectful)) s"${u.name}[F]" else u.name
         }

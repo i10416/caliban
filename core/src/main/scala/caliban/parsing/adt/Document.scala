@@ -42,4 +42,6 @@ case class Document(definitions: List[Definition], sourceMapper: SourceMapper) {
 
   def objectTypeDefinition(name: String): Option[ObjectTypeDefinition] =
     objectTypeDefinitions.find(t => t.name == name)
+  def interfaceTypeDefinition(name: String): Option[InterfaceTypeDefinition] =
+    interfaceTypeDefinitions.find(t => t.name == name)
 }

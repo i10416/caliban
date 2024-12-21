@@ -106,6 +106,37 @@ object SchemaWriterSpec extends SnapshotTest {
         isEffectTypeAbstract = true
       )
     ),
+    snapshotTest("interface, abstracted effect and lazy combination")(
+      gen(
+        """
+        directive @lazy on FIELD_DEFINITION
+
+        type Query {
+            t0: T0!
+            t1: T1!
+        }
+        interface Direct {
+            i: Int! @lazy
+        }
+
+        interface Transitive {
+          i: T2
+        }
+
+        type T0 implements Direct {
+          i: Int! @lazy
+        }
+        type T1 implements Transitive {
+          i: T2
+        }
+        type T2 {
+          i: Int @lazy
+        }
+        """,
+        effect = "F",
+        isEffectTypeAbstract = true
+      )
+    ),
     snapshotTest("simple mutation with abstracted effect type")(
       gen(
         """
