@@ -40,7 +40,7 @@ case class Document(definitions: List[Definition], sourceMapper: SourceMapper) {
   @transient lazy val subscriptionDefinitions: List[OperationDefinition]          =
     definitions.collect { case od: OperationDefinition if od.operationType == Subscription => od }
 
-  def objectTypeDefinition(name: String): Option[ObjectTypeDefinition] =
+  def objectTypeDefinition(name: String): Option[ObjectTypeDefinition]       =
     objectTypeDefinitions.find(t => t.name == name)
   def interfaceTypeDefinition(name: String): Option[InterfaceTypeDefinition] =
     interfaceTypeDefinitions.find(t => t.name == name)
